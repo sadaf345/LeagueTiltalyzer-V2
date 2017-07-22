@@ -9,7 +9,7 @@ var bodyParser = require('body-parser')
 var numberOfGames = 1; // Global variable for the amount of ranked games to analyze
 var userID = "";
 
-var API_KEY = 'RGAPI-ab5d75a0-66d8-4a8f-87a1-89a1596a6ac4';
+var API_KEY = 'RGAPI-4492ff47-36a9-4ec8-9db6-8aeca67fc041';
 
 app.set('view engine', 'pug');
 
@@ -34,7 +34,7 @@ app.post('/', function(req, res) {
           var matchIDAndChampionIDData = getRankedMatchData(json); 
           var individualMatchData = getIndividualMatchJSONObj(matchIDAndChampionIDData);
         
-          console.log(individualMatchData);
+            console.log(individualMatchData);
           //console.log(getWinRate(getIndividualMatchJSONObj));
           //console.log(getAvgKDA(getIndividualMatchJSONObj));
           //console.log(getWardingStat(getIndividualMatchJSONObj));
@@ -64,7 +64,7 @@ function getRankedMatchData(json) {
         championID: [numberOfGames],
         lane: [numberOfGames]
     };
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < numberOfGames; i++) {
         matchData.matchID[i] = json['matches'][i].matchId;
         matchData.championID[i] = json['matches'][i].champion;
         matchData.lane[i] = json['matches'][i].lane;
@@ -78,42 +78,36 @@ function getIndividualMatchJSONObj(matchData) {
     };
     
     for (var i = 0; i < numberOfGames; i++) {
-       matchParticipantData.specificParticipantData[i] =  getIndividualMatchJSONObjHelper(matchData, matchParticipantData, i);
-    }    
+       getIndividualMatchJSONObjHelper(matchData, matchParticipantData, i, function(err, json) {
+            matchParticipantData.specificParticipantData[i] = json;
+       });
+    } 
     return matchParticipantData;
 
 }
 
-function getIndividualMatchJSONObjHelper(matchData, matchParticipantData, indexIter) {
+function getIndividualMatchJSONObjHelper(matchData, matchParticipantData, indexIter, callback) {
     var individualMatchURL = 'https://na1.api.riotgames.com/lol/match/v3/matches/' + matchData.matchID[indexIter] + '?api_key=' + API_KEY;
-    async.waterfall([
-            function(callback) {
-              request(individualMatchURL, function(err, response, body) {
-                if(!err && response.statusCode == 200) {
-                    var json = JSON.parse(body);
-                    for (var j = 0; j < 10; j++) {
-                        if (matchData.championID[indexIter] == json['participants'][j].championId) {
-                            return json['participants'][j];
-                            }
-                        }
-                    } else {
-                          console.log(err);
+    var jsonFinal;
+     async.waterfall([
+        function (callback) {
+            request(individualMatchURL, function (err, response, body) {
+                if (err)
+                    return callback(err);
+                if (response.statusCode != 200)
+                    return callback(new Error('Status code was ' + response.statusCode));
+                var json = JSON.parse(body);
+                for (var j = 0; j < 10; j++) {
+                    if (matchData.championID[indexIter] == json['participants'][j].championId) {
+                        return callback(null, json['participants'][j]);
                     }
-                });
-            }
-        ],
-        function(err, data) {
-            if(err) {
-                console.log(err);
-            return;
-            }
-        });
-    
-    return matchParticipantData;
+                }
+            });
+        }
+    ], callback); 
 }
 
 function getWinRate(matchData) {
-    console.log(matchData);
     winRate = 0;
     finalWinRate = 0;
     for (var i = 0; i < numberOfGames; i++) {
