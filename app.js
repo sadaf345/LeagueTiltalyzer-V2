@@ -9,7 +9,7 @@ var bodyParser = require('body-parser')
 var numberOfGames = 1; // Global variable for the amount of ranked games to analyze
 var userID = "";
 
-var API_KEY = 'RGAPI-4492ff47-36a9-4ec8-9db6-8aeca67fc041';
+var API_KEY = 'RGAPI-8efa1329-f231-48a2-b836-55c05181c6e1';
 
 app.set('view engine', 'pug');
 
@@ -21,9 +21,11 @@ app.get('/', function (req, res) {
 })
 
 app.post('/', function(req, res) {
-    userID = req.body.username;
+    userName = req.body.username;
+    
     var data = {};
-    var matchListURL = 'https://na.api.riotgames.com/api/lol/NA/v2.2/matchlist/by-summoner/' + userID + '?api_key=' + API_KEY;
+    var matchListURL = "https://na1.api.riotgames.com/lol/summoner/v3/summoners/by-name/" + userName + "?api_key=" + API_KEY;
+    //console.log(matchListURL);
 
   async.waterfall([
     function(callback) {
@@ -31,10 +33,14 @@ app.post('/', function(req, res) {
         if(!err && response.statusCode == 200) {
 
           var json = JSON.parse(body);
-          var matchIDAndChampionIDData = getRankedMatchData(json); 
-          var individualMatchData = getIndividualMatchJSONObj(matchIDAndChampionIDData);
+          var accountID = json.accountId;
+            
+          var getMatchData = getRecentMatchIDs(accountID);
+          console.log(getMatchData);
+          //var matchIDAndChampionIDData = getRankedMatchData(json); 
+          //var individualMatchData = getIndividualMatchJSONObj(matchIDAndChampionIDData);
         
-            console.log(individualMatchData);
+            //console.log(individualMatchData);
           //console.log(getWinRate(getIndividualMatchJSONObj));
           //console.log(getAvgKDA(getIndividualMatchJSONObj));
           //console.log(getWardingStat(getIndividualMatchJSONObj));
@@ -57,7 +63,40 @@ app.post('/', function(req, res) {
     }
   });
 })
-           
+
+function getRecentMatchIDs(accountID) {
+    var matchData = {
+        matchID: [numberOfGames],
+        championID: [numberOfGames],
+        lane: [numberOfGames]
+    };
+    
+    var matchListURL = "https://na1.api.riotgames.com/lol/match/v3/matchlists/by-account/" + accountID + "/recent?api_key=" + API_KEY;
+    
+   async.waterfall([
+        function (callback) {
+            request(individualMatchURL, function (err, response, body) {
+                if (err)
+                    return callback(err);
+                if (response.statusCode != 200)
+                    return callback(new Error('Status code was ' + response.statusCode));
+
+                callback(null, data);
+            } else {
+              console.log(err);
+            }
+          });
+        }
+      ],
+      function(err, data) {
+        if(err) {
+          console.log(err);
+          return;
+        }
+  });
+    
+   return matchData;
+}
 function getRankedMatchData(json) {
     var matchData = {
         matchID: [numberOfGames],
@@ -80,6 +119,7 @@ function getIndividualMatchJSONObj(matchData) {
     for (var i = 0; i < numberOfGames; i++) {
        getIndividualMatchJSONObjHelper(matchData, matchParticipantData, i, function(err, json) {
             matchParticipantData.specificParticipantData[i] = json;
+           callback(matchParticipantData);
        });
     } 
     return matchParticipantData;
